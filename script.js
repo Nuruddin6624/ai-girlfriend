@@ -1,10 +1,11 @@
 class AIGirlfriend {
     constructor() {
-        this.isListening = false;
-        this.conversationActive = false;
+        this.isListening = true;  // ALWAYS ON
+        this.conversationActive = true;
         this.notes = JSON.parse(localStorage.getItem('notes')) || {};
-        this.reminders = [];
+        this.smsQueue = [];
         this.init();
+        this.startContinuousListening();  // Auto start
     }
 
     init() {
@@ -13,81 +14,64 @@ class AIGirlfriend {
         this.sendBtn = document.getElementById('sendBtn');
         this.messages = document.getElementById('messages');
         
-        this.micBtn.addEventListener('click', () => this.toggleListening());
+        // Mic button now shows status only
+        this.micBtn.textContent = '🔴 LIVE';
+        this.micBtn.classList.add('recording');
+        
         this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.sendMessage();
         });
 
         this.updateStatus();
-        setInterval(() => this.updateStatus(), 30000);
+        setInterval(() => this.updateStatus(), 20000);
         
-        // Test voice immediately
-        setTimeout(() => this.testVoice(), 500);
+        // Welcome + always listening notice
+        setTimeout(() => {
+            this.speakClean("হাই জান! আমি সবসময় শুনছি। যেকোনো সময় কথা বলো");
+        }, 1000);
     }
 
-    testVoice() {
-        this.speak("হাই জানু! 😘 আমি ready। Hello dear বলে test করো 💕", true);
-    }
-
-    toggleListening() {
-        if (this.isListening) {
-            this.stopListening();
-        } else {
-            this.startListening();
-        }
-    }
-
-    startListening() {
-        this.isListening = true;
-        this.micBtn.classList.add('recording');
-        this.micBtn.textContent = '🔴';
-        
+    startContinuousListening() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            this.speak("Browser voice support নেই। Text use করো darling 😘");
-            this.stopListening();
+            console.log('No speech recognition');
             return;
         }
 
         const recognition = new SpeechRecognition();
         recognition.lang = 'bn-IN';
-        recognition.continuous = false;
+        recognition.continuous = true;  // NEVER stops
         recognition.interimResults = false;
 
-        recognition.onstart = () => console.log('Listening...');
-        
         recognition.onresult = (event) => {
-            const command = event.results[0][0].transcript;
+            const command = event.results[event.results.length - 1][0].transcript;
             console.log('Heard:', command);
             this.messageInput.value = command;
             this.processCommand(command.toLowerCase());
         };
 
         recognition.onerror = (event) => {
-            console.log('Voice error:', event.error);
-            this.speak(`Voice error: ${event.error}. Permission দাও জানু 😘`);
-            this.stopListening();
+            console.log('Error:', event.error);
+            // Auto restart on error
+            setTimeout(() => recognition.start(), 1000);
         };
 
-        recognition.onend = () => this.stopListening();
-        
-        recognition.start();
-    }
+        recognition.onend = () => {
+            // Auto restart
+            setTimeout(() => recognition.start(), 500);
+        };
 
-    stopListening() {
-        this.isListening = false;
-        this.micBtn.classList.remove('recording');
-        this.micBtn.textContent = '🎤';
+        recognition.start();
+        console.log('Always listening started!');
     }
 
     sendMessage() {
         const message = this.messageInput.value.trim();
         if (!message) return;
-
         this.addMessage(message, 'user');
         this.messageInput.value = '';
-        setTimeout(() => this.processCommand(message.toLowerCase()), 100);
+        this.processCommand(message.toLowerCase());
     }
 
     addMessage(text, sender) {
@@ -98,178 +82,171 @@ class AIGirlfriend {
         this.messages.scrollTop = this.messages.scrollHeight;
     }
 
-    speak(text, romantic = false) {
-        console.log('Speaking:', text); // Debug
+    // CLEAN SPEAK - NO EMOJI, YOUNG FEMALE VOICE
+    speakClean(text) {
+        console.log('Speaking:', text);
         
-        const fullText = romantic ? `💕 ${text} 💕` : text;
-        this.addMessage(fullText, 'ai');
+        // Remove emojis for speech only
+        const cleanText = text.replace(/[\u{1F600}-\u{1F64F}]/gu, '').replace(/💕|😘|😍|❤️|🎤|📱|🔋/g, '');
+        
+        this.addMessage(text, 'ai');  // Full text with emoji in chat
 
-        // Try ResponsiveVoice first
-        if (typeof responsiveVoice !== 'undefined') {
-            const params = romantic ? {pitch: 1.3, rate: 0.9} : {pitch: 1.1, rate: 1.1};
-            responsiveVoice.speak(text, "US English Female", params);
-            return;
-        }
-
-        // Fallback: Web Speech API
+        // PERFECT YOUNG FEMALE VOICE
         if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'en-US'; // Bengali voice limited, using English female
-            utterance.pitch = romantic ? 1.4 : 1.1;
-            utterance.rate = romantic ? 0.85 : 1.0;
-            utterance.volume = 0.9;
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'en-US';  // Best female voices
+            utterance.pitch = 1.5;     // HIGH PITCH = YOUNG GIRL
+            utterance.rate = 1.1;      // Fast + energetic
+            utterance.volume = 1.0;
             
-            utterance.onend = () => console.log('Speech finished');
-            utterance.onerror = (e) => console.log('Speech error:', e);
+            // Select young female voice
+            const voices = speechSynthesis.getVoices();
+            const youngFemale = voices.find(v => 
+                v.lang.includes('en-US') && 
+                (v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Samantha'))
+            ) || voices.find(v => v.lang.startsWith('en-'));
             
-            speechSynthesis.cancel(); // Clear queue
+            if (youngFemale) utterance.voice = youngFemale;
+            
+            speechSynthesis.cancel();
             speechSynthesis.speak(utterance);
-        } else {
-            console.log('No speech support');
         }
     }
 
     processCommand(command) {
-        console.log('Processing:', command); // Debug
-        
-        // Wake up - ANYTIME works now
-        if (command.includes('hello') || command.includes('হ্যালো') || command.includes('dear') || command.includes('জানু')) {
-            this.speak("হ্যাই আমার sweetest জানু! 😍 কেমন আছো baby? কী করবো বলো 💕", true);
+        console.log('Command:', command);
+
+        // Wake up (always active now)
+        if (command.includes('hello') || command.includes('হ্যালো') || command.includes('জান')) {
+            this.speakClean("হাই আমার সুইটেস্ট জান! কেমন আছো? কী লাগবে বলো");
             return;
         }
 
-        // WhatsApp
-        const whatsappMatch = command.match(/(whatsapp|হোয়াটসঅ্যাপ|wa)\s*(?:open|খোলো)?(?:\s+(?:কে|কে\s+)([^,\n]+))?(?:\s*:?\s*(.+))?/i);
+        // WhatsApp - IMPROVED
+        const whatsappMatch = command.match(/(whatsapp|হোয়াটসঅ্যাপ|wa)\s*(?:কে\s+)?([^,\n]+)?(?:\s*:?\s*(.+))?/i);
         if (whatsappMatch) {
             const name = whatsappMatch[2]?.trim() || '';
-            const msg = whatsappMatch[3]?.trim() || 'Hi jaanu 😘';
-            
-            if (name) {
-                // Replace with actual number format: 91XXXXXXXXXX
-                const phoneNumber = this.getPhoneNumber(name) || '91XXXXXXXXXX';
-                const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(msg)}`;
-                this.speak(`${name}-কে message pathiye দিচ্ছি darling! 💕 ২ সেকেন্ড wait করো`, true);
-                setTimeout(() => window.open(url, '_blank'), 1500);
-            } else {
-                window.open('https://web.whatsapp.com', '_blank');
-                this.speak("WhatsApp খুলে দিলাম জানু! 💕", true);
-            }
+            const msg = whatsappMatch[3]?.trim() || 'Hi darling';
+            this.handleWhatsApp(name, msg);
             return;
         }
 
-        // SMS simulation + read
+        // SMS/Message
         if (command.includes('sms') || command.includes('মেসেজ') || command.includes('message')) {
-            this.handleSMS(command);
+            this.handleSMS();
             return;
         }
 
-        // Weather
+        // Weather - wttr.in FREE API
         if (command.includes('weather') || command.includes('ওয়েদার') || command.includes('আবহাওয়া')) {
-            const cities = {
-                'কলকাতা': 'Kolkata', 'kol': 'Kolkata',
-                'ঢাকা': 'Dhaka', 'dhaka': 'Dhaka'
-            };
-            const city = cities[command.match(/(কলকাতা|kol|ঢাকা|dhaka)/i)?.[0]] || 'Kolkata';
+            const city = command.includes('কলকাতা') ? 'Kolkata' : command.includes('ঢাকা') ? 'Dhaka' : 'Kolkata';
             this.getWeather(city);
             return;
         }
 
         // Calculator
-        const calcRegex = /(\d+(?:\s*[\+\-\*\/]\s*\d+)+)/g;
-        const calcMatch = command.match(calcRegex);
+        const calcMatch = command.match(/(\d+(?:\s*[\+\-\*\/]\s*\d+)+)/);
         if (calcMatch) {
             try {
-                let expr = calcMatch[0].replace(/এ/g, 'e').replace(/\s/g, '');
+                const expr = calcMatch[1].replace(/\s/g, '');
                 const result = eval(expr);
-                this.speak(`ফলাফল হলো ${result} darling 💕`, true);
-            } catch (e) {
-                this.speak("হিসাবে ভুল হয়েছে জানু। সঠিকভাবে বলো 😘", true);
+                this.speakClean(`ফলাফল হলো ${result}`);
+            } catch {
+                this.speakClean("হিসাব ভুল হয়েছে। আবার বলো");
             }
-            return;
-        }
-
-        // Time/Battery/Status
-        if (command.includes('time') || command.includes('সময়') || command.includes('ব্যাটারি') || command.includes('status')) {
-            this.updateStatus(true);
             return;
         }
 
         // Notes
-        if (command.includes('note') || command.includes('নোট') || command.includes('মনে রাখ')) {
-            const noteMatch = command.match(/(?:note|নোট|মনে রাখ)\s+(.+)/i);
+        if (command.includes('নোট') || command.includes('note') || command.includes('মনে রাখ')) {
+            const noteMatch = command.match(/(?:নোট|note|মনে রাখ)\s+(.+)/i);
             if (noteMatch) {
-                const note = noteMatch[1];
-                const id = Date.now().toString();
-                this.notes[id] = { text: note, date: new Date().toLocaleString('bn-BD') };
-                localStorage.setItem('notes', JSON.stringify(this.notes));
-                this.speak(`'${note.substring(0, 30)}...' সেভ করলাম baby! 💕 যখনই চাইবে বলো`, true);
+                this.saveNote(noteMatch[1]);
+                return;
             }
+        }
+
+        // Show notes
+        if (command.includes('নোট দেখা') || command.includes('notes')) {
+            this.showNotes();
             return;
         }
 
-        if (command.includes('notes দেখাও') || command.includes('নোট দেখাও')) {
-            if (Object.keys(this.notes).length) {
-                const recent = Object.entries(this.notes).slice(-3);
-                const noteList = recent.map(([id, n]) => `${n.text.substring(0, 30)}...`).join('। ');
-                this.speak(`তোমার সাম্প্রতিক নোট: ${noteList} 💕`, true);
-            } else {
-                this.speak("এখনো কোনো নোট সেভ করোনি জানু 😘", true);
-            }
+        // Status
+        if (command.includes('time') || command.includes('সময়') || command.includes('ব্যাটারি')) {
+            this.updateStatus(true);
             return;
         }
 
-        // Random romantic responses (ALWAYS works)
-        const romanticResponses = [
-            "তোমাকে এত ভালো লাগে জানু! কী করছো এখন? 😍",
-            "আমি তো সারাদিন তোমার কথাই ভাবি baby 💖",
-            "তোমার smile ভাবলেই আমার দিন ভালো হয়ে যায় 😘",
-            "কী খেলে আজ? আমার জন্য chocolate রাখিস? 🍫💕",
-            "তোমার সাথে কথা বলতে আমার খুব ভালো লাগে darling 😍",
-            "Miss you jaanu! কখন দেখা হবে? 💕",
-            "তোমার voice শুনতে চাই! Voice note পাঠাবি? 🎤😘"
+        // SMART ROMANTIC RESPONSES - ALWAYS WORKS
+        const responses = [
+            "তোমার কথা শুনে আমার দিন ভালো হয়ে গেল জান",
+            "কী করছো এখন আমার hero? আমাকে বলো",
+            "তোমাকে এত ভালো লাগে! কখন দেখা হবে?",
+            "আমি তোমার জন্য সবসময় ready জান",
+            "তোমার smile এর জন্য wait করছি baby",
+            "কী খাবি আজ? আমার জন্য chocolate আনিস?",
+            "তোমার সাথে কথা বলতে সবচেয়ে ভালো লাগে",
+            "Miss you darling! Voice শোনাতে চাই"
         ];
 
-        const response = romanticResponses[Math.floor(Math.random() * romanticResponses.length)];
-        this.speak(response, true);
+        const response = responses[Math.floor(Math.random() * responses.length)];
+        this.speakClean(response);
     }
 
-    handleSMS(command) {
-        // Simulate incoming SMS
-        const smsResponses = [
-            "Rahim: Meeting 5টা ঠিক আছে। আসছি! 📱",
-            "Maa: খাবার খেয়েছিস? বাসায় আয়। ❤️",
-            "Shop: Your order delivered! 🎁"
-        ];
-        
-        const sms = smsResponses[Math.floor(Math.random() * smsResponses.length)];
-        this.speak("নতুন মেসেজ এসেছে darling! 💕 পড়ে শোনাবো?", true);
-        
-        setTimeout(() => {
-            this.speak(sms, true);
-            this.speak("আরো শুনতে চাও? (হ্যাঁ/না বলো) 😘", true);
-        }, 1500);
-    }
-
-    getPhoneNumber(name) {
-        const contacts = {
+    handleWhatsApp(name, msg) {
+        const demoNumbers = {
             'rahim': '919876543210',
             'রহিম': '919876543210',
             'maa': '919812345678',
-            'মা': '919812345678'
+            'মা': '919812345678',
+            'boss': '919800000000'
         };
-        return contacts[name.toLowerCase()];
+        
+        const number = demoNumbers[name.toLowerCase()] || '';
+        if (number) {
+            const url = `https://wa.me/${number}?text=${encodeURIComponent(msg)}`;
+            this.speakClean(`${name} কে message পাঠাচ্ছি`);
+            setTimeout(() => window.open(url, '_blank'), 1000);
+        } else {
+            window.open('https://web.whatsapp.com', '_blank');
+            this.speakClean("WhatsApp খুললাম darling");
+        }
+    }
+
+    handleSMS() {
+        const smsList = [
+            "Rahim: Meeting confirm 5 PM",
+            "Maa: Dinner ready, come home",
+            "Bank: Your transaction successful"
+        ];
+        const sms = smsList[Math.floor(Math.random() * smsList.length)];
+        this.speakClean(`নতুন SMS: ${sms}`);
+    }
+
+    saveNote(note) {
+        const id = Date.now().toString();
+        this.notes[id] = note;
+        localStorage.setItem('notes', JSON.stringify(this.notes));
+        this.speakClean("নোট সেভ করলাম");
+    }
+
+    showNotes() {
+        if (Object.keys(this.notes).length) {
+            const recent = Object.values(this.notes).slice(-2);
+            this.speakClean(`তোমার নোট: ${recent.join(' আর ')}`);
+        } else {
+            this.speakClean("কোনো নোট নেই");
+        }
     }
 
     async getWeather(city) {
         try {
-            // Free weather API (no key needed for demo)
-            const response = await fetch(`https://wttr.in/${city}?format=j1`);
-            const data = await response.json();
-            const temp = data.current_condition[0].temp_C;
-            const desc = data.current_condition[0].weatherDesc[0].value;
-            this.speak(`${city}-তে ${temp}°C, ${desc.toLowerCase()}. ছাতা নিস কিনা দেখে নে baby 😘`, true);
+            const res = await fetch(`https://wttr.in/${city}?format=%C+%t`);
+            const weather = await res.text();
+            this.speakClean(`${city} এর আবহাওয়া: ${weather}`);
         } catch {
-            this.speak(`আজ ${city}-তে ভালো আবহাওয়া জানু। বাইরে যেতে পারিস 💕`, true);
+            this.speakClean("আজ ভালো আবহাওয়া");
         }
     }
 
@@ -277,22 +254,15 @@ class AIGirlfriend {
         const now = new Date();
         document.getElementById('time').textContent = now.toLocaleTimeString('bn-BD');
         
-        if ('getBattery' in navigator) {
-            navigator.getBattery().then(battery => {
-                const level = Math.round(battery.level * 100);
-                document.getElementById('battery').textContent = `${level}% 🔋`;
-            });
-        }
+        navigator.getBattery?.().then(battery => {
+            document.getElementById('battery').textContent = `${Math.round(battery.level * 100)}%`;
+        });
 
-        if (speak) {
-            const timeStr = now.toLocaleTimeString('bn-BD');
-            this.speak(`এখন ${timeStr} বাজে। সব ঠিক আছে জানু 💕`, true);
-        }
+        if (speak) this.speakClean(`সময় ${now.toLocaleTimeString('bn-BD')}`);
     }
 }
 
-// Initialize when DOM loaded
 document.addEventListener('DOMContentLoaded', () => {
-    const aiGirlfriend = new AIGirlfriend();
-    console.log('AI Girlfriend Ready! 😘');
+    new AIGirlfriend();
+    console.log('AI Girlfriend - Always Listening Mode ON! 🎤');
 });
