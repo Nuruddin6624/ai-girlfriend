@@ -1,0 +1,16 @@
+{
+    "name": "AI Girlfriend 😘",
+    "short_name": "AI GF",
+    "description": "তোমার personal AI girlfriend",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ff69b4",
+    "theme_color": "#ff1493",
+    "icons": [
+        {
+            "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxjaXJjbGUgY3g9Ijk2IiBjeT0iOTYiIHI9Ijk2IiBmaWxsPSIjRkYxNDkzIi8+CjxjaXJjbGUgY3g9IjY4IiBjeT0iNjQiIHI9IjE2IiBmaWxsPSIjRkZGRkZGIi8+CjxjaXJjbGUgY3g9IjEyNCIgY3k9IjY0IiByPSIxNiIgZmlsbD0iI0ZGRkZGRiIvPgo8cGF0aCBkPSJNNCAxMjBDNCA5NiAxNiA4MCAzMiA2NEwxNjAgNjRDMjQgODQgNDAgOTYgNDAgMTIwSDBWMjA4SDQweiIgZmlsbD0iI0ZGRkZGRiIvPgo8L3N2Zz4K",
+            "sizes": "192x192",
+            "type": "image/svg+xml"
+        }
+    ]
+}
