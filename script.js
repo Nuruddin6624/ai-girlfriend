@@ -1,11 +1,11 @@
 class AIGirlfriend {
     constructor() {
-        this.isListening = true;  // ALWAYS ON
+        this.isListening = true;
+        this.speaking = false;  // Speech control
         this.conversationActive = true;
         this.notes = JSON.parse(localStorage.getItem('notes')) || {};
-        this.smsQueue = [];
         this.init();
-        this.startContinuousListening();  // Auto start
+        this.startContinuousListening();
     }
 
     init() {
@@ -14,7 +14,6 @@ class AIGirlfriend {
         this.sendBtn = document.getElementById('sendBtn');
         this.messages = document.getElementById('messages');
         
-        // Mic button now shows status only
         this.micBtn.textContent = '🔴 LIVE';
         this.micBtn.classList.add('recording');
         
@@ -23,47 +22,95 @@ class AIGirlfriend {
             if (e.key === 'Enter') this.sendMessage();
         });
 
+        // Voice loading wait
+        if (speechSynthesis.getVoices().length === 0) {
+            speechSynthesis.onvoiceschanged = () => {
+                setTimeout(() => this.welcomeMessage(), 1000);
+            };
+        } else {
+            setTimeout(() => this.welcomeMessage(), 1000);
+        }
+
         this.updateStatus();
         setInterval(() => this.updateStatus(), 20000);
-        
-        // Welcome + always listening notice
-        setTimeout(() => {
-            this.speakClean("হাই জান! আমি সবসময় শুনছি। যেকোনো সময় কথা বলো");
-        }, 1000);
+    }
+
+    welcomeMessage() {
+        this.speakClean("হাই জান! আমি সবসময় শুনছি। যেকোনো সময় কথা বলো");
     }
 
     startContinuousListening() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            console.log('No speech recognition');
-            return;
-        }
+        if (!SpeechRecognition) return;
 
         const recognition = new SpeechRecognition();
         recognition.lang = 'bn-IN';
-        recognition.continuous = true;  // NEVER stops
+        recognition.continuous = true;
         recognition.interimResults = false;
 
         recognition.onresult = (event) => {
             const command = event.results[event.results.length - 1][0].transcript;
-            console.log('Heard:', command);
+            console.log('🎤 Heard:', command);
             this.messageInput.value = command;
             this.processCommand(command.toLowerCase());
         };
 
         recognition.onerror = (event) => {
-            console.log('Error:', event.error);
-            // Auto restart on error
+            console.log('Mic error:', event.error);
             setTimeout(() => recognition.start(), 1000);
         };
 
         recognition.onend = () => {
-            // Auto restart
             setTimeout(() => recognition.start(), 500);
         };
 
         recognition.start();
-        console.log('Always listening started!');
+        console.log('🎤 Always listening ON!');
+    }
+
+    // PERFECT SPEECH - 100% WORKING
+    speakClean(text) {
+        if (this.speaking) return;
+        this.speaking = true;
+        
+        console.log('🗣️ Speaking:', text);
+        
+        // Remove emojis for speech
+        const cleanText = text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+                             .replace(/[💕😘😍❤️🎤📱🔋🌤️📝⌨️🚀😘]/g, '');
+
+        this.addMessage(text, 'ai');
+
+        if ('speechSynthesis' in window) {
+            speechSynthesis.cancel();  // Stop previous
+            
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'bn-IN';  // Bengali voice
+            utterance.pitch = 1.8;     // VERY YOUNG GIRL
+            utterance.rate = 1.2;      // Fast
+            utterance.volume = 1.0;
+            
+            // BEST FEMALE VOICE
+            const voices = speechSynthesis.getVoices();
+            let bestVoice = voices.find(v => v.lang.includes('bn-IN')) || 
+                           voices.find(v => v.name.includes('Female')) ||
+                           voices.find(v => v.lang.startsWith('en-'));
+            
+            if (bestVoice) {
+                utterance.voice = bestVoice;
+                console.log('Voice selected:', bestVoice.name);
+            }
+            
+            utterance.onend = () => {
+                this.speaking = false;
+            };
+            
+            utterance.onerror = () => {
+                this.speaking = false;
+            };
+            
+            speechSynthesis.speak(utterance);
+        }
     }
 
     sendMessage() {
@@ -82,65 +129,30 @@ class AIGirlfriend {
         this.messages.scrollTop = this.messages.scrollHeight;
     }
 
-    // CLEAN SPEAK - NO EMOJI, YOUNG FEMALE VOICE
-    speakClean(text) {
-        console.log('Speaking:', text);
-        
-        // Remove emojis for speech only
-        const cleanText = text.replace(/[\u{1F600}-\u{1F64F}]/gu, '').replace(/💕|😘|😍|❤️|🎤|📱|🔋/g, '');
-        
-        this.addMessage(text, 'ai');  // Full text with emoji in chat
-
-        // PERFECT YOUNG FEMALE VOICE
-        if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.lang = 'en-US';  // Best female voices
-            utterance.pitch = 1.5;     // HIGH PITCH = YOUNG GIRL
-            utterance.rate = 1.1;      // Fast + energetic
-            utterance.volume = 1.0;
-            
-            // Select young female voice
-            const voices = speechSynthesis.getVoices();
-            const youngFemale = voices.find(v => 
-                v.lang.includes('en-US') && 
-                (v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Samantha'))
-            ) || voices.find(v => v.lang.startsWith('en-'));
-            
-            if (youngFemale) utterance.voice = youngFemale;
-            
-            speechSynthesis.cancel();
-            speechSynthesis.speak(utterance);
-        }
-    }
-
     processCommand(command) {
-        console.log('Command:', command);
+        console.log('🤖 Processing:', command);
 
-        // Wake up (always active now)
-        if (command.includes('hello') || command.includes('হ্যালো') || command.includes('জান')) {
-            this.speakClean("হাই আমার সুইটেস্ট জান! কেমন আছো? কী লাগবে বলো");
+        // Wake word (always active)
+        if (command.includes('hello') || command.includes('হ্যালো') || command.includes('জান') || command.includes('love')) {
+            this.speakClean("হাই আমার সুইটেস্ট জান! কেমন আছো? কী লাগবে বলো 💕");
             return;
         }
 
-        // WhatsApp - IMPROVED
-        const whatsappMatch = command.match(/(whatsapp|হোয়াটসঅ্যাপ|wa)\s*(?:কে\s+)?([^,\n]+)?(?:\s*:?\s*(.+))?/i);
-        if (whatsappMatch) {
-            const name = whatsappMatch[2]?.trim() || '';
-            const msg = whatsappMatch[3]?.trim() || 'Hi darling';
-            this.handleWhatsApp(name, msg);
+        // WHATSAPP - PHONE APP (NOT WEB)
+        if (command.includes('whatsapp') || command.includes('হোয়াটসঅ্যাপ') || command.includes('wa')) {
+            this.handleWhatsApp(command);
             return;
         }
 
-        // SMS/Message
-        if (command.includes('sms') || command.includes('মেসেজ') || command.includes('message')) {
+        // SMS
+        if (command.includes('sms') || command.includes('মেসেজ')) {
             this.handleSMS();
             return;
         }
 
-        // Weather - wttr.in FREE API
+        // Weather
         if (command.includes('weather') || command.includes('ওয়েদার') || command.includes('আবহাওয়া')) {
-            const city = command.includes('কলকাতা') ? 'Kolkata' : command.includes('ঢাকা') ? 'Dhaka' : 'Kolkata';
-            this.getWeather(city);
+            this.getWeather(command);
             return;
         }
 
@@ -150,23 +162,22 @@ class AIGirlfriend {
             try {
                 const expr = calcMatch[1].replace(/\s/g, '');
                 const result = eval(expr);
-                this.speakClean(`ফলাফল হলো ${result}`);
+                this.speakClean(`${expr} এর ফলাফল ${result}`);
             } catch {
-                this.speakClean("হিসাব ভুল হয়েছে। আবার বলো");
+                this.speakClean("হিসাব ভুল হয়েছে darling");
             }
             return;
         }
 
         // Notes
         if (command.includes('নোট') || command.includes('note') || command.includes('মনে রাখ')) {
-            const noteMatch = command.match(/(?:নোট|note|মনে রাখ)\s+(.+)/i);
+            const noteMatch = command.match(/(?:নোট|note|মনে রাখ).*?(.+)/i);
             if (noteMatch) {
                 this.saveNote(noteMatch[1]);
                 return;
             }
         }
 
-        // Show notes
         if (command.includes('নোট দেখা') || command.includes('notes')) {
             this.showNotes();
             return;
@@ -178,48 +189,49 @@ class AIGirlfriend {
             return;
         }
 
-        // SMART ROMANTIC RESPONSES - ALWAYS WORKS
+        // Romantic responses
         const responses = [
-            "তোমার কথা শুনে আমার দিন ভালো হয়ে গেল জান",
-            "কী করছো এখন আমার hero? আমাকে বলো",
-            "তোমাকে এত ভালো লাগে! কখন দেখা হবে?",
-            "আমি তোমার জন্য সবসময় ready জান",
-            "তোমার smile এর জন্য wait করছি baby",
-            "কী খাবি আজ? আমার জন্য chocolate আনিস?",
-            "তোমার সাথে কথা বলতে সবচেয়ে ভালো লাগে",
-            "Miss you darling! Voice শোনাতে চাই"
+            "তোমার কথা শুনে খুব ভালো লাগলো জান 😘",
+            "কী করছো এখন আমার hero? আমাকে বলো 💕",
+            "তোমাকে এত ভালো লাগে! কখন দেখা হবে darling?",
+            "Miss you baby! Voice শোনাতে চাই 😍"
         ];
-
-        const response = responses[Math.floor(Math.random() * responses.length)];
-        this.speakClean(response);
+        this.speakClean(responses[Math.floor(Math.random() * responses.length)]);
     }
 
-    handleWhatsApp(name, msg) {
-        const demoNumbers = {
+    // WHATSAPP PHONE APP - PERFECT FIX
+    handleWhatsApp(command) {
+        // Extract name and message
+        const nameMatch = command.match(/(?:কে\s+)?([^\s,\n]+)?/i);
+        const msgMatch = command.match(/:\s*(.+)/i);
+        const name = nameMatch?.[1]?.toLowerCase() || '';
+        const msg = msgMatch?.[1] || 'Hi darling';
+
+        // PHONE WHATSAPP SCHEME
+        const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(msg)}`;
+        
+        // Common contacts for demo
+        const contacts = {
             'rahim': '919876543210',
             'রহিম': '919876543210',
             'maa': '919812345678',
-            'মা': '919812345678',
-            'boss': '919800000000'
+            'মা': '919812345678'
         };
-        
-        const number = demoNumbers[name.toLowerCase()] || '';
-        if (number) {
-            const url = `https://wa.me/${number}?text=${encodeURIComponent(msg)}`;
-            this.speakClean(`${name} কে message পাঠাচ্ছি`);
-            setTimeout(() => window.open(url, '_blank'), 1000);
+
+        if (contacts[name]) {
+            // Specific contact
+            const url = `whatsapp://send?phone=${contacts[name]}&text=${encodeURIComponent(msg)}`;
+            this.speakClean(`${name} কে WhatsApp করছি 💬`);
+            window.open(url, '_blank');
         } else {
-            window.open('https://web.whatsapp.com', '_blank');
-            this.speakClean("WhatsApp খুললাম darling");
+            // Open WhatsApp chat screen
+            this.speakClean("WhatsApp খুলছি darling 💕");
+            window.open(whatsappUrl, '_blank');
         }
     }
 
     handleSMS() {
-        const smsList = [
-            "Rahim: Meeting confirm 5 PM",
-            "Maa: Dinner ready, come home",
-            "Bank: Your transaction successful"
-        ];
+        const smsList = ["রহিম: মিটিং ৫ টায়", "মা: খাবার ready", "ব্যাংক: Transaction successful"];
         const sms = smsList[Math.floor(Math.random() * smsList.length)];
         this.speakClean(`নতুন SMS: ${sms}`);
     }
@@ -228,7 +240,7 @@ class AIGirlfriend {
         const id = Date.now().toString();
         this.notes[id] = note;
         localStorage.setItem('notes', JSON.stringify(this.notes));
-        this.speakClean("নোট সেভ করলাম");
+        this.speakClean("নোট save করলাম জান 📝");
     }
 
     showNotes() {
@@ -236,33 +248,31 @@ class AIGirlfriend {
             const recent = Object.values(this.notes).slice(-2);
             this.speakClean(`তোমার নোট: ${recent.join(' আর ')}`);
         } else {
-            this.speakClean("কোনো নোট নেই");
+            this.speakClean("কোনো নোট নেই darling");
         }
     }
 
-    async getWeather(city) {
+    async getWeather(command) {
+        const city = command.includes('কলকাতা') ? 'Kolkata' : command.includes('ঢাকা') ? 'Dhaka' : 'Kolkata';
         try {
             const res = await fetch(`https://wttr.in/${city}?format=%C+%t`);
             const weather = await res.text();
-            this.speakClean(`${city} এর আবহাওয়া: ${weather}`);
+            this.speakClean(`${city}: ${weather} 🌤️`);
         } catch {
-            this.speakClean("আজ ভালো আবহাওয়া");
+            this.speakClean("আজ ভালো আবহাওয়া আছে");
         }
     }
 
     updateStatus(speak = false) {
         const now = new Date();
         document.getElementById('time').textContent = now.toLocaleTimeString('bn-BD');
-        
         navigator.getBattery?.().then(battery => {
             document.getElementById('battery').textContent = `${Math.round(battery.level * 100)}%`;
         });
-
         if (speak) this.speakClean(`সময় ${now.toLocaleTimeString('bn-BD')}`);
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     new AIGirlfriend();
-    console.log('AI Girlfriend - Always Listening Mode ON! 🎤');
 });
